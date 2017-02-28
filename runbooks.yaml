@@ -1,0 +1,89 @@
+---
+addSalesRepMultiregion:
+  name: Add Sales Rep for Multiregion Accounts
+  description: Fill out the forms below and hit submit to add sales rep.
+  sql: >
+    insert into accounts_to_sap_reps (account_id, sap_user_code, rep_name, user_id) values (
+        (select account_id from accounts where account_number = $1),
+        $2,
+        $3,
+        (select user_id from users where email_lower = $4)
+    );
+  sqlParams:
+  - account_number
+  - sap_user_code
+  - rep_name
+  - email_lower
+  schema:
+    type: object
+    required:
+    - account_number
+    - sap_user_code
+    - rep_name
+    - email_lower
+    properties:
+      account_number:
+        pattern: "^[0-9]{10}$"
+        type: string
+        title: Account Number
+      sap_user_code:
+        pattern: "^[0-9]{3}$"
+        type: string
+        title: SAP User Code
+      rep_name:
+        type: string
+        title: Rep Name
+      email_lower:
+        type: string
+        title: Email Lowercased
+        format: email
+chanemePassword:
+  name: Change user password to changeme
+  description: Fill out user email in lowercase to change password to `changeme.`
+  sql: >
+    UPDATE users SET password_hash = "" WHERE email_lower = $1
+  sqlParams:
+  - email_lower
+  schema:
+    type: object
+    required:
+    - email_lower
+    properties:
+      email_lower:
+        type: string
+        title: Email Lowercased
+        format: email
+findSapXml:
+  name: Find SAP XMLs by Shipment Number
+  description: Enter shipment numbers to find corresponding SAP XML docs
+  sqlAarrayFormat:
+    shipment_numbers:
+    - source_path like <% item %>
+    - OR
+  sql: >
+    -- find sap documents (xml) by SAP shipment number
+    SELECT
+      document_id,
+      feed_type,
+      failed_message,
+      process_state,
+      source_path,
+      state_changed AT TIME ZONE 'UTC'
+    FROM sap_feed_documents
+    WHERE
+      feed_type = 'order_shipment' AND
+      (
+        <% shipment_numbers %>
+      )
+    ORDER BY state_changed DESC;
+  schema:
+    type: object
+    required:
+    - shipment_numbers
+    properties:
+      shipment_numbers:
+        type: array
+        title: A list of shipment numbers
+        items:
+          type: string
+
